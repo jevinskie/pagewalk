@@ -19,7 +19,7 @@ uint64_t size = 0;
 uint64_t get64(uint64_t addr)
 {
     if(!buf || addr >= size - 8) {
-        fprintf(stderr, "address %016lx is outside of memdump (0 - %lx)\n", addr, size);
+        fprintf(stderr, "address %016lX is outside of memdump (0 - %lX)\n", addr, size);
         exit(1);
     }
     return *((uint64_t*)(buf + addr));
@@ -28,7 +28,7 @@ uint64_t get64(uint64_t addr)
 static void data(uint64_t p)
 {
     p = get64(p);
-    printf("data         %02x %02x %02x %02x %02x %02x %02x %02x\n",
+    printf("data         %02X %02X %02X %02X %02X %02X %02X %02X\n",
         p & 0xff, (p >> 8) & 0xff, (p >> 16) & 0xff, (p >> 24) & 0xff,
         (p >> 32) & 0xff, (p >> 40) & 0xff, (p >> 48) & 0xff, (p >> 56) & 0xff);
 }
@@ -37,7 +37,7 @@ static void flags_x86(uint64_t p)
 {
     printf("%c%c%c%c%c",(p>>11)&1?'L':'.',(p>>8)&1?'G':'.',(p>>7)&1?'T':'.',(p>>6)&1?'D':'.',(p>>5)&1?'A':'.');
     printf("%c%c%c%c%c",(p>>4)&1?'.':'C',(p>>3)&1?'W':'.',(p>>2)&1?'U':'S',(p>>1)&1?'W':'R',p&(1UL<<63)?'.':'X');
-    if(!(p & 1)) printf(" (not present)"); else printf(" %08x", (uint32_t)phyaddr_x86(p));
+    if(!(p & 1)) printf(" (not present)"); else printf(" %08X", (uint32_t)phyaddr_x86(p));
 }
 
 static void flags_arm(uint64_t p)
@@ -45,7 +45,7 @@ static void flags_arm(uint64_t p)
     printf("%c%c%x%c%c", (p>>58)&1?'L':'.', (p>>63)&1?'N':'.', (p>>61)&3, (p>>60)&1?'U':'.', (p>>59)&1?'P':'.');
     printf("%c%c%c%x", (p>>53)&1?'P':'.', (p>>11)&1?'.':'G', (p>>10)&1?'A':'.', (p>>8)&3?(((p>>8)&3)==1?'I':'O'):'N');
     printf("%c%c%c%c%c", (p>>2)&3?((p>>2)==1?'D':'.'):'C', p&2?'.':'G', (p>>6)&1?'U':'S', (p>>7)&1?'R':'W', p&(1UL<<54)?'.':'X');
-    if(!(p & 1)) printf(" (not present)"); else printf(" %08x", (uint32_t)phyaddr_arm(p));
+    if(!(p & 1)) printf(" (not present)"); else printf(" %08X", (uint32_t)phyaddr_arm(p));
 }
 
 static void walk_x86(uint64_t p, int lvl, int idx)
@@ -55,7 +55,7 @@ static void walk_x86(uint64_t p, int lvl, int idx)
 
     if(!p) return;
     for(i = 0; i < 4 - lvl; i++) printf("  ");
-    printf("idx %3d %016lx ", idx, p); if(lvl != 4) flags_x86(p);
+    printf("idx %3d %016lX ", idx, p); if(lvl != 4) flags_x86(p);
     if(r >= size - 8 && lvl && (r & 1)) printf(" (address is outside of memdump, not descending)");
     printf("\n");
     if(r >= size - 8 || !lvl || (lvl < 4 && (!(p & 1) || (p & 0x80)))) return;
@@ -70,12 +70,25 @@ static void walk_arm(uint64_t p, int lvl, int idx)
 
     if(!p) return;
     for(i = 0; i < 3 - lvl; i++) printf("  ");
-    printf("idx %3d %016lx ", idx, p); if(lvl != 3) flags_arm(p);
+    printf("idx %3d %016lX ", idx, p); if(lvl != 3) flags_arm(p);
     if(r >= size - 8 && lvl && (r & 1)) printf(" (address is outside of memdump, not descending)");
     printf("\n");
     if(r >= size - 8 || !lvl || (lvl < 3 && (p & 3) != 3)) return;
     for(i = 0; i < 512; i++)
         walk_arm(get64(r + i * 8), lvl - 1, i);
+}
+
+uint64_t gethex(char *ptr)
+{
+    uint64_t ret = 0;
+    if(ptr[0] == '0' && ptr[1] == 'x') ptr += 2;
+    for(;*ptr;ptr++) {
+        if(*ptr>='0' && *ptr<='9') {          ret <<= 4; ret += (uint32_t)(*ptr - '0'); }
+        else if(*ptr >= 'a' && *ptr <= 'f') { ret <<= 4; ret += (uint32_t)(*ptr - 'a' + 10); }
+        else if(*ptr >= 'A' && *ptr <= 'F') { ret <<= 4; ret += (uint32_t)(*ptr - 'A' + 10); }
+        else if(*ptr != '_') break;
+    }
+    return ret;
 }
 
 int main(int argc, char **argv)
@@ -103,8 +116,8 @@ int main(int argc, char **argv)
     }
     if(!strcmp(argv[1], "aarch64")) arch = 1; else
     if(strcmp(argv[1], "x86_64")) { fprintf(stderr, "unknown arch\n"); return 1; }
-    root = strtol(argv[3], NULL, 16);
-    if(argc > 4) address = strtol(argv[4], NULL, 16); else tree = 1;
+    root = gethex(argv[3]);
+    if(argc > 4) address = gethex(argv[4]); else tree = 1;
 
     /* read in memory dump */
     if(!(f = fopen(argv[2], "rb"))) { fprintf(stderr, "unable to open memdump file\n"); return 1; }
@@ -121,18 +134,18 @@ int main(int argc, char **argv)
         case 0:
             if(tree) walk_x86(r, 4, 0);
             else {
-                printf("CR3          %016lx\n", r);
+                printf("CR3          %016lX\n", r);
                 r = get64(phyaddr_x86(r) + ((address >> 39L) & 511) * 8);
-                printf("PML4 idx %3d %016lx ", ((address >> 39L) & 511), r); flags_x86(r); printf("\n");
+                printf("PML4 idx %3d %016lX ", ((address >> 39L) & 511), r); flags_x86(r); printf("\n");
                 if(r & 1) {
                     r = get64(phyaddr_x86(r) + ((address >> 30L) & 511) * 8);
-                    printf("PDPE idx %3d %016lx ", ((address >> 30L) & 511), r); flags_x86(r); printf("\n");
+                    printf("PDPE idx %3d %016lX ", ((address >> 30L) & 511), r); flags_x86(r); printf("\n");
                     if(r & 1) {
                         r = get64(phyaddr_x86(r) + ((address >> 21L) & 511) * 8);
-                        printf("PDE  idx %3d %016lx ", ((address >> 21L) & 511), r); flags_x86(r); printf("\n");
+                        printf("PDE  idx %3d %016lX ", ((address >> 21L) & 511), r); flags_x86(r); printf("\n");
                         if(!(r & 0x80) && (r & 1)) {
                             r = get64(phyaddr_x86(r) + ((address >> 12L) & 511) * 8);
-                            printf("PTE  idx %3d %016lx ", ((address >> 12L) & 511), r); flags_x86(r); printf("\n");
+                            printf("PTE  idx %3d %016lX ", ((address >> 12L) & 511), r); flags_x86(r); printf("\n");
                             if(r & 1) data(phyaddr_x86(r)); else printf("data (?)\n");
                         } else if(!(r & 1)) printf("PTE  (?)\ndata (?)\n"); else data(phyaddr_x86(r));
                     } else printf("PDE  (?)\nPTE  (?)\ndata (?)\n");
@@ -142,15 +155,15 @@ int main(int argc, char **argv)
         case 1:
             if(tree) walk_arm(r, 3, 0);
             else {
-                printf("TTBR%d        %016lx\n", address >> 48 ? 1 : 0, r);
+                printf("TTBR%d        %016lX\n", address >> 48 ? 1 : 0, r);
                 r = get64(phyaddr_arm(r) + ((address >> 30L) & 511) * 8);
-                printf("L1   idx %3d %016lx ", ((address >> 30L) & 511), r); flags_arm(r); printf("\n");
+                printf("L1   idx %3d %016lX ", ((address >> 30L) & 511), r); flags_arm(r); printf("\n");
                 if(r & 1) {
                     r = get64(phyaddr_arm(r) + ((address >> 21L) & 511) * 8);
-                    printf("L2   idx %3d %016lx ", ((address >> 21L) & 511), r); flags_arm(r); printf("\n");
+                    printf("L2   idx %3d %016lX ", ((address >> 21L) & 511), r); flags_arm(r); printf("\n");
                     if((r & 3) == 3) {
                         r = get64(phyaddr_arm(r) + ((address >> 12L) & 511) * 8);
-                        printf("L3   idx %3d %016lx ", ((address >> 12L) & 511), r); flags_arm(r); printf("\n");
+                        printf("L3   idx %3d %016lX ", ((address >> 12L) & 511), r); flags_arm(r); printf("\n");
                         if(r & 1) data(phyaddr_arm(r)); else printf("data (?)\n");
                     } else if(!(r & 1)) printf("L3   (?)\ndata (?)\n"); else data(phyaddr_arm(r));
                 } else printf("L2   (?)\nL3   (?)\ndata (?)\n");
