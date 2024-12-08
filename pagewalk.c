@@ -27,10 +27,20 @@ uint64_t get64(uint64_t addr)
 
 static void data(uint64_t p)
 {
-    p = get64(p);
-    printf("data         %02X %02X %02X %02X %02X %02X %02X %02X\n",
-        p & 0xff, (p >> 8) & 0xff, (p >> 16) & 0xff, (p >> 24) & 0xff,
-        (p >> 32) & 0xff, (p >> 40) & 0xff, (p >> 48) & 0xff, (p >> 56) & 0xff);
+    uint64_t t;
+    uint8_t buf[16];
+    t = get64(p); memcpy(buf, &t, 8);
+    t = get64(p+8); memcpy(buf+8, &t, 8);
+    printf("data         %02X %02X %02X %02X %02X %02X %02X %02X  %02X %02X %02X %02X %02X %02X %02X %02X  %c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
+        buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10], buf[11], buf[12], buf[13], buf[14], buf[15],
+        buf[0] > ' ' && buf[0] < 127 ? buf[0] : '.', buf[1] > ' ' && buf[1] < 127 ? buf[1] : '.',
+        buf[2] > ' ' && buf[2] < 127 ? buf[2] : '.', buf[3] > ' ' && buf[3] < 127 ? buf[3] : '.',
+        buf[4] > ' ' && buf[4] < 127 ? buf[4] : '.', buf[5] > ' ' && buf[5] < 127 ? buf[5] : '.',
+        buf[6] > ' ' && buf[6] < 127 ? buf[6] : '.', buf[7] > ' ' && buf[7] < 127 ? buf[7] : '.',
+        buf[8] > ' ' && buf[8] < 127 ? buf[8] : '.', buf[9] > ' ' && buf[9] < 127 ? buf[9] : '.',
+        buf[10] > ' ' && buf[10] < 127 ? buf[10] : '.', buf[11] > ' ' && buf[11] < 127 ? buf[11] : '.',
+        buf[12] > ' ' && buf[12] < 127 ? buf[12] : '.', buf[13] > ' ' && buf[13] < 127 ? buf[13] : '.',
+        buf[14] > ' ' && buf[14] < 127 ? buf[14] : '.', buf[15] > ' ' && buf[15] < 127 ? buf[15] : '.');
 }
 
 static void flags_x86(uint64_t p)
